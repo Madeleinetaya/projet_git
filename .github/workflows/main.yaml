@@ -71,7 +71,7 @@ jobs:
           with:
           # Chemin relatif vers le répertoire contenant le Dockerfile de la base de données.
           # D'après votre docker-compose.yml et l'image partagée, c'est ./Database-app/init_database
-            context: ./Database-app/init_database
+            context: ./database
           # Définit les tags pour l'image de la base de données.
             tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest # Nom d'image suggéré
           # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
@@ -83,7 +83,7 @@ jobs:
           with:
           # Chemin relatif vers le répertoire contenant le Dockerfile du serveur Apache.
           # D'après votre docker-compose.yml, c'est ./HTTP-server-app
-            context: ./HTTP-server-app
+            context: ./http-server
           # Définit les tags pour l'image Apache.
             tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest # Nom d'image suggéré
           # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
