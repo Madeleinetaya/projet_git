@@ -30,6 +30,17 @@ jobs:
       - name: Build and test with Maven
         run: mvn clean verify --file simple-api/pom.xml
 # define job to build and publish docker image
+      - name: SonarCloud Scan
+        run: >
+          mvn -B verify sonar:sonar
+          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+          --file ./simple-api/pom.xml
+        env:
+          # Définir la variable d'environnement pour SonarCloud Token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-push-docker-image:
     # Ce job NÉCESSITE que le job 'test-backend' se termine avec succès.
