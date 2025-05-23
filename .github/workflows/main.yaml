@@ -29,3 +29,62 @@ jobs:
       # Étape 3 : compiler et tester l'application
       - name: Build and test with Maven
         run: mvn clean verify --file simple-api/pom.xml
+# define job to build and publish docker image
+
+  build-and-push-docker-image:
+    # Ce job NÉCESSITE que le job 'test-backend' se termine avec succès.
+    # Les images ne seront construites et poussées que si le code compile et que les tests passent.
+      needs: test-backend
+      runs-on: ubuntu-24.04
+      steps:
+      # Étape 1 : récupérer le code source (nécessaire pour accéder aux Dockerfiles)
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+      # Étape 2 : Se connecter à DockerHub (nécessaire pour pousser les images)
+      # Cette étape n'est exécutée que si le workflow est déclenché par un push sur la branche 'main'.
+      # Les secrets DOCKERHUB_USERNAME et DOCKERHUB_TOKEN doivent être configurés dans les paramètres du dépôt GitHub.
+        - name: Login to DockerHub
+          if: github.ref == 'refs/heads/main' # Condition pour exécuter cette étape uniquement sur la branche main
+          run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      # Étape 3 : Configurer l'environnement Buildx (moteur de build Docker amélioré)
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+      # Étape 4 : Construire et (conditionnellement) pousser l'image du backend
+        - name: Build and push backend image
+          uses: docker/build-push-action@v6
+          with:
+          # Chemin relatif vers le répertoire contenant le Dockerfile du backend
+          # D'après votre structure, c'est ./simple-api
+            context: ./simple-api
+          # Définit les tags pour l'image. Utilisez le nom d'utilisateur DockerHub et un nom d'image.
+          # Le tag 'latest' est courant pour la dernière version.
+            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
+            push: ${{ github.ref == 'refs/heads/main' }}
+
+      # Étape 5 : Construire et (conditionnellement) pousser l'image de la base de données
+        - name: Build and push database image
+          uses: docker/build-push-action@v6
+          with:
+          # Chemin relatif vers le répertoire contenant le Dockerfile de la base de données.
+          # D'après votre docker-compose.yml et l'image partagée, c'est ./Database-app/init_database
+            context: ./Database-app/init_database
+          # Définit les tags pour l'image de la base de données.
+            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest # Nom d'image suggéré
+          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
+            push: ${{ github.ref == 'refs/heads/main' }}
+
+      # Étape 6 : Construire et (conditionnellement) pousser l'image du serveur Apache (httpd)
+        - name: Build and push httpd image
+          uses: docker/build-push-action@v6
+          with:
+          # Chemin relatif vers le répertoire contenant le Dockerfile du serveur Apache.
+          # D'après votre docker-compose.yml, c'est ./HTTP-server-app
+            context: ./HTTP-server-app
+          # Définit les tags pour l'image Apache.
+            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest # Nom d'image suggéré
+          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
+            push: ${{ github.ref == 'refs/heads/main' }}
