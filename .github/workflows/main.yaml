@@ -126,22 +126,11 @@ jobs:
           ssh-keyscan -H ${{ secrets.ANSIBLE_INVENTORY_HOST }} >> ~/.ssh/known_hosts
         shell: bash
 
-      # Optional: If you use Ansible Vault for encrypting sensitive data
-      - name: Set up Ansible Vault Password
-        if: secrets.ANSIBLE_VAULT_PASS != '' # Corrected syntax for 'if' condition
-        run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASS }}" > .vault_pass_file
-          chmod 600 .vault_pass_file
-        working-directory: ./ansible
-        shell: bash
-
       - name: Run Ansible Playbook to Deploy
         run: |
           ansible-playbook -i "${{ secrets.ANSIBLE_INVENTORY_HOST }}," \
             --private-key=~/.ssh/id_rsa \
             -u admin \
             playbook.yml
-          # Add the following line if you use Ansible Vault
-          # --vault-password-file .vault_pass_file
         working-directory: ./ansible
         shell: bash
