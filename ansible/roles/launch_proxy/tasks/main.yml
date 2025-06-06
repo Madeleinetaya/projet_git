@@ -1,0 +1,12 @@
+# roles/launch_proxy/tasks/main.yml
+---
+- name: Launch httpd (proxy) container
+  community.docker.docker_container:
+    name: httpd
+    image: lesliemad/tp-devops-httpd
+    ports:
+      - "80:80" # Mappe le port 80 de l'hôte au port 80 du conteneur
+    networks:
+      - name: my-network
+    state: started
+    restart_policy: always

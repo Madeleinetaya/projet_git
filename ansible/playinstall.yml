@@ -1,0 +1,63 @@
+--- # <-- C'est une bonne pratique de commencer par trois tirets pour les fichiers YAML Ansible
+- hosts: all
+  gather_facts: true
+  become: true # Ajout de become ici pour s'assurer que toutes les tâches s'exécutent avec sudo
+
+  tasks:
+    # Install prerequisites for Docker
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-venv
+        state: latest
+        update_cache: yes
+
+    # Add Docker’s official GPG key
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key: # Utilisation du FQCN recommandé
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    # Set up the Docker stable repository
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository: # Utilisation du FQCN recommandé
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
+        state: present
+        update_cache: yes
+
+    # Install Docker
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+
+    # Install Python3 and pip3 (if not already installed by python3-venv)
+    - name: Install Python3 and pip3
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    # Create a virtual environment for Python packages
+    - name: Create a virtual environment for Docker SDK
+      command: python3 -m venv /opt/docker_venv
+      args:
+        creates: /opt/docker_venv  # Only runs if this directory doesn’t exist
+
+    # Install Docker SDK for Python in the virtual environment
+    - name: Install Docker SDK for Python in virtual environment
+      command: /opt/docker_venv/bin/pip install docker
+
+    # Ensure Docker is running
+    - name: Make sure Docker is running
+      ansible.builtin.service: # Utilisation du FQCN recommandé
+        name: docker
+        state: started
+        enabled: yes # Ajout pour s'assurer que le service démarre au boot
+      tags: docker

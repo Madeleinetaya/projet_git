@@ -1,0 +1,27 @@
+# playbook.yml
+---
+- name: Setup Docker Environment
+  hosts: all
+  gather_facts: true
+  become: true
+  # Utilise l'interpréteur Python par défaut du système pour ce play
+  # car le venv n'existe pas encore.
+  # Ansible tentera de trouver python3 ou python par défaut s'il n'est pas spécifié.
+  # Si vous êtes sûr que python3 est installé, vous pouvez le spécifier explicitement :
+  # ansible_python_interpreter: /usr/bin/python3
+  roles:
+    - docker # Ce rôle va installer Docker et créer /opt/docker_venv/bin/python VVVVH
+
+- name: Deploy Dockerized Application
+  hosts: all
+  gather_facts: false # Les faits ont déjà été collectés dans le premier play si nécessaire
+  become: true
+  # Maintenant, l'environnement virtuel devrait exister, nous pouvons l'utiliser.
+  vars:
+    ansible_python_interpreter: /opt/docker_venv/bin/python
+
+  roles:
+    - create_network   # Crée le réseau Docker
+    - launch_database  # Lance le conteneur de la base de données
+    - launch_app       # Lance le conteneur de l'API
+    - launch_proxy     # Lance le conteneur du proxy

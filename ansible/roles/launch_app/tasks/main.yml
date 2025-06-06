@@ -1,0 +1,14 @@
+# roles/launch_app/tasks/main.yml
+---
+- name: Launch simple-api container
+  community.docker.docker_container:
+    name: simple-api
+    image: lesliemad/tp-devops-simple-api
+    env:
+      DATABASE_HOST: database
+      DATABASE_PASSWORD: pwd
+    networks:
+      - name: my-network
+    state: started
+    restart_policy: always
+    
