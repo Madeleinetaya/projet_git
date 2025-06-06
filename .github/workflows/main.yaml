@@ -128,7 +128,7 @@ jobs:
 
       # Optional: If you use Ansible Vault for encrypting sensitive data
       - name: Set up Ansible Vault Password
-        if: ${{ secrets.ANSIBLE_VAULT_PASS != '' }} # Execute only if the secret is defined
+        if: secrets.ANSIBLE_VAULT_PASS != '' # Corrected syntax for 'if' condition
         run: |
           echo "${{ secrets.ANSIBLE_VAULT_PASS }}" > .vault_pass_file
           chmod 600 .vault_pass_file
