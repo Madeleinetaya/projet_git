@@ -132,5 +132,5 @@ jobs:
             --private-key=~/.ssh/id_rsa \
             -u admin \
             playbook.yml
-        working-directory: ./ansible
+        working-directory: ./ansible # Corrected to `./ansible` to match your directory structure
         shell: bash
