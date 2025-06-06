@@ -1,9 +1,8 @@
 name: CI devops 2025
 
 on:
-  # Lancer le job sur les branches main et develop
   push:
-    branches: 
+    branches:
       - main
       - develop
   pull_request:
@@ -12,24 +11,25 @@ on:
       - develop
 
 jobs:
-  test-backend: 
+  test-backend:
     runs-on: ubuntu-24.04
 
     steps:
-      # Étape 1 : récupérer le code depuis le dépôt
+      # Step 1: Checkout code from the repository
       - uses: actions/checkout@v4
 
-      # Étape 2 : configurer le JDK 21
+      # Step 2: Set up JDK 21
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      # Étape 3 : compiler et tester l'application
+      # Step 3: Compile and test the application
       - name: Build and test with Maven
         run: mvn clean verify --file simple-api/pom.xml
-# define job to build and publish docker image
+
+      # Step 4: SonarCloud Scan
       - name: SonarCloud Scan
         run: >
           mvn -B verify sonar:sonar
@@ -39,63 +39,109 @@ jobs:
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
           --file ./simple-api/pom.xml
         env:
-          # Définir la variable d'environnement pour SonarCloud Token
+          # Set environment variable for SonarCloud Token
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-push-docker-image:
-    # Ce job NÉCESSITE que le job 'test-backend' se termine avec succès.
-    # Les images ne seront construites et poussées que si le code compile et que les tests passent.
-      needs: test-backend
-      runs-on: ubuntu-24.04
-      steps:
-      # Étape 1 : récupérer le code source (nécessaire pour accéder aux Dockerfiles)
-        - name: Checkout code
-          uses: actions/checkout@v4
+    # This job REQUIRES the 'test-backend' job to complete successfully.
+    # Images will only be built and pushed if the code compiles and tests pass.
+    needs: test-backend
+    runs-on: ubuntu-24.04
+    steps:
+      # Step 1: Checkout source code (necessary to access Dockerfiles)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Étape 2 : Se connecter à DockerHub (nécessaire pour pousser les images)
-      # Cette étape n'est exécutée que si le workflow est déclenché par un push sur la branche 'main'.
-      # Les secrets DOCKERHUB_USERNAME et DOCKERHUB_TOKEN doivent être configurés dans les paramètres du dépôt GitHub.
-        - name: Login to DockerHub
-          if: github.ref == 'refs/heads/main' # Condition pour exécuter cette étape uniquement sur la branche main
-          run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      # Step 2: Log in to DockerHub (necessary to push images)
+      # This step is executed only if the workflow is triggered by a push to the 'main' branch.
+      # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets must be configured in GitHub repository settings.
+      - name: Login to DockerHub
+        if: github.ref == 'refs/heads/main' # Condition to execute this step only on the main branch
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-      # Étape 3 : Configurer l'environnement Buildx (moteur de build Docker amélioré)
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v3
+      # Step 3: Set up Buildx environment (enhanced Docker build engine)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # Étape 4 : Construire et (conditionnellement) pousser l'image du backend
-        - name: Build and push backend image
-          uses: docker/build-push-action@v6
-          with:
-          # Chemin relatif vers le répertoire contenant le Dockerfile du backend
-          # D'après votre structure, c'est ./simple-api
-            context: ./simple-api
-          # Définit les tags pour l'image. Utilisez le nom d'utilisateur DockerHub et un nom d'image.
-          # Le tag 'latest' est courant pour la dernière version.
-            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
-          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
-            push: ${{ github.ref == 'refs/heads/main' }}
+      # Step 4: Build and (conditionally) push the backend image
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          # Relative path to the directory containing the backend Dockerfile
+          context: ./simple-api
+          # Defines tags for the image. Use the DockerHub username and an image name.
+          # The 'latest' tag is common for the latest version.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+          # Pushes the image to DockerHub ONLY if the workflow is on the 'main' branch.
+          push: ${{ github.ref == 'refs/heads/main' }}
 
-      # Étape 5 : Construire et (conditionnellement) pousser l'image de la base de données
-        - name: Build and push database image
-          uses: docker/build-push-action@v6
-          with:
-          # Chemin relatif vers le répertoire contenant le Dockerfile de la base de données.
-          # D'après votre docker-compose.yml et l'image partagée, c'est ./Database-app/init_database
-            context: ./database
-          # Définit les tags pour l'image de la base de données.
-            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest # Nom d'image suggéré
-          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
-            push: ${{ github.ref == 'refs/heads/main' }}
+      # Step 5: Build and (conditionally) push the database image
+      - name: Build and push database image
+        uses: docker/build-push-action@v6
+        with:
+          # Relative path to the directory containing the database Dockerfile.
+          context: ./database
+          # Defines tags for the database image.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest # Suggested image name
+          # Pushes the image to DockerHub ONLY if the workflow is on the 'main' branch.
+          push: ${{ github.ref == 'refs/heads/main' }}
 
-      # Étape 6 : Construire et (conditionnellement) pousser l'image du serveur Apache (httpd)
-        - name: Build and push httpd image
-          uses: docker/build-push-action@v6
-          with:
-          # Chemin relatif vers le répertoire contenant le Dockerfile du serveur Apache.
-          # D'après votre docker-compose.yml, c'est ./HTTP-server-app
-            context: ./http-server
-          # Définit les tags pour l'image Apache.
-            tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest # Nom d'image suggéré
-          # Pousse l'image vers DockerHub UNIQUEMENT si le workflow est sur la branche 'main'.
-            push: ${{ github.ref == 'refs/heads/main' }}
+      # Step 6: Build and (conditionally) push the Apache server (httpd) image
+      - name: Build and push httpd image
+        uses: docker/build-push-action@v6
+        with:
+          # Relative path to the directory containing the Apache server Dockerfile.
+          context: ./http-server
+          # Defines tags for the Apache image.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest # Suggested image name
+          # Pushes the image to DockerHub ONLY if the workflow is on the 'main' branch.
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+  deploy:
+    name: Deploy Application to Server
+    runs-on: ubuntu-24.04 # Use the same runner as previous jobs
+    needs: build-and-push-docker-image # This job depends on the success of building and pushing images
+    if: github.ref == 'refs/heads/main' # Deploy only on the 'main' branch
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible and Community Docker collection
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 400 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.ANSIBLE_INVENTORY_HOST }} >> ~/.ssh/known_hosts
+        shell: bash
+
+      # Optional: If you use Ansible Vault for encrypting sensitive data
+      - name: Set up Ansible Vault Password
+        if: ${{ secrets.ANSIBLE_VAULT_PASS != '' }} # Execute only if the secret is defined
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASS }}" > .vault_pass_file
+          chmod 600 .vault_pass_file
+        working-directory: ./ansible
+        shell: bash
+
+      - name: Run Ansible Playbook to Deploy
+        run: |
+          ansible-playbook -i "${{ secrets.ANSIBLE_INVENTORY_HOST }}," \
+            --private-key=~/.ssh/id_rsa \
+            -u admin \
+            playbook.yml
+          # Add the following line if you use Ansible Vault
+          # --vault-password-file .vault_pass_file
+        working-directory: ./ansible
+        shell: bash
