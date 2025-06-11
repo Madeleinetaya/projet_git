@@ -1,33 +1,37 @@
-# roles/docker/tasks/main.yml
 ---
+# Tâche 1 : Installer les paquets nécessaires au fonctionnement du dépôt Docker et de Python
 - name: Install required packages
   apt:
     name:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg
-      - lsb-release
-      - python3-venv
+      - apt-transport-https  # Permet à APT d'utiliser HTTPS
+      - ca-certificates      # Gère les certificats SSL
+      - curl                 # Utilitaire de transfert de données (utile pour les GPG keys)
+      - gnupg                # Outils de gestion de clés GPG
+      - lsb-release          # Utilisé pour détecter la version de la distribution
+      - python3-venv         # Nécessaire pour créer des environnements virtuels Python
     state: latest
-    update_cache: yes
+    update_cache: yes        # Met à jour la liste des paquets
 
+# Tâche 2 : Ajouter la clé GPG officielle de Docker
 - name: Add Docker GPG key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/debian/gpg
-    state: present
+    state: present           # S'assure que la clé est présente
 
+# Tâche 3 : Ajouter le dépôt APT officiel de Docker
 - name: Add Docker APT repository
   ansible.builtin.apt_repository:
     repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
     state: present
-    update_cache: yes
+    update_cache: yes        # Recharge le cache APT après ajout du dépôt
 
+# Tâche 4 : Installer Docker CE (Community Edition)
 - name: Install Docker
   apt:
     name: docker-ce
-    state: present
+    state: present           # S'assure que Docker est installé
 
+# Tâche 5 : Installer Python3 et pip3 (utiles pour les scripts ou SDK Python)
 - name: Install Python3 and pip3 (if not already installed by prerequisites)
   apt:
     name:
@@ -35,19 +39,22 @@
       - python3-pip
     state: present
 
+# Tâche 6 : Créer un environnement virtuel pour installer le SDK Docker
 - name: Create a virtual environment for Docker SDK
   ansible.builtin.command: python3 -m venv /opt/docker_venv
   args:
-    creates: /opt/docker_venv # Only runs if this directory doesn’t exist
+    creates: /opt/docker_venv  # Ne recrée pas si déjà existant
 
+# Tâche 7 : Installer le SDK Docker dans l'environnement virtuel
 - name: Install Docker SDK for Python in virtual environment
   ansible.builtin.command: /opt/docker_venv/bin/pip install docker
   args:
-    creates: /opt/docker_venv/bin/docker # A simple check that the SDK is installed
+    creates: /opt/docker_venv/bin/docker  # Évite la réinstallation si déjà présent
 
+# Tâche 8 : Démarrer et activer le service Docker
 - name: Make sure Docker is running
   ansible.builtin.service:
     name: docker
-    state: started
-    enabled: true # Ensure it starts on boot
-  tags: docker
+    state: started           # Démarre Docker si ce n’est pas le cas
+    enabled: true            # Active Docker au démarrage
+  tags: docker               # Permet d’exécuter cette tâche avec --tags docker
